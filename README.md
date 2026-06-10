@@ -50,20 +50,21 @@ redpwn/jail mounts `/srv` in the container to `/` in each jail, then executes `/
 
 To configure these, [use `ENV`](https://docs.docker.com/engine/reference/builder/#env) in your Dockerfile. To remove a limit, set its value to `0`.
 
-| Name                | Default             | Description                                                                                                                 |
-| ------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `JAIL_TIME`         | `20`                | Maximum wall seconds per connection                                                                                         |
-| `JAIL_CONNS`        | `0`                 | Maximum concurrent connections across all IPs                                                                               |
-| `JAIL_CONNS_PER_IP` | `0`                 | Maximum concurrent connections for each IP                                                                                  |
-| `JAIL_PIDS`         | `5`                 | Maximum PIDs in use per connection                                                                                          |
-| `JAIL_MEM`          | `5M`                | Maximum memory per connection                                                                                               |
-| `JAIL_CPU`          | `100`               | Maximum CPU milliseconds per wall second per connection. For example, `100` means each connection can use 10% of a CPU core |
-| `JAIL_POW`          | `0`                 | [Proof of work](#proof-of-work) difficulty                                                                                  |
-| `JAIL_PORT`         | `5000`              | Port number to bind to                                                                                                      |
-| `JAIL_DEV`          | `null,zero,urandom` | Device files available in `/dev` separated by `,`                                                                           |
-| `JAIL_SYSCALLS`     | _(none)_            | Additional allowed syscall names separated by `,`                                                                           |
-| `JAIL_TMP_SIZE`     | `0`                 | Maximum size of writable `/tmp` directory in each jail. If set to `0`, the writable `/tmp` directory is unavailable.        |
-| `JAIL_ENV_*`        | _(none)_            | Environment variables available in each jail (with the `JAIL_ENV_` prefix removed)                                          |
+| Name                  | Default             | Description                                                                                                                 |
+| --------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `JAIL_TIME`           | `20`                | Maximum wall seconds per connection                                                                                         |
+| `JAIL_CONNS`          | `0`                 | Maximum concurrent connections across all IPs                                                                               |
+| `JAIL_CONNS_PER_IP`   | `0`                 | Maximum concurrent connections for each IP                                                                                  |
+| `JAIL_PIDS`           | `5`                 | Maximum PIDs in use per connection                                                                                          |
+| `JAIL_MEM`            | `5M`                | Maximum memory per connection                                                                                               |
+| `JAIL_CPU`            | `100`               | Maximum CPU milliseconds per wall second per connection. For example, `100` means each connection can use 10% of a CPU core |
+| `JAIL_POW`            | `0`                 | [Proof of work](#proof-of-work) difficulty                                                                                  |
+| `JAIL_PORT`           | `5000`              | Port number to bind to                                                                                                      |
+| `JAIL_PROXY_PROTOCOL` | `false`             | Parse a PROXY protocol v1 header on each connection to recover the real client IP behind a proxy load balancer              |
+| `JAIL_DEV`            | `null,zero,urandom` | Device files available in `/dev` separated by `,`                                                                           |
+| `JAIL_SYSCALLS`       | _(none)_            | Additional allowed syscall names separated by `,`                                                                           |
+| `JAIL_TMP_SIZE`       | `0`                 | Maximum size of writable `/tmp` directory in each jail. If set to `0`, the writable `/tmp` directory is unavailable.        |
+| `JAIL_ENV_*`          | _(none)_            | Environment variables available in each jail (with the `JAIL_ENV_` prefix removed)                                          |
 
 If it exists, `/jail/hook.sh` is executed before the jail starts. Use this script to configure nsjail options or the execution environment.
 

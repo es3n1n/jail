@@ -37,13 +37,14 @@ type Config struct {
 	Dev        []string `env:"JAIL_DEV" envDefault:"null,zero,urandom"`
 	Syscalls   []string `env:"JAIL_SYSCALLS"`
 	TmpSize    size     `env:"JAIL_TMP_SIZE"`
+	ProxyProto bool     `env:"JAIL_PROXY_PROTOCOL"`
 	Env        []string
 }
 
 const envPrefix = "JAIL_ENV_"
 
 func (c *Config) NsjailListen() (uint32, bool) {
-	if c.Pow <= 0 {
+	if c.Pow <= 0 && !c.ProxyProto {
 		return c.Port, false
 	}
 	return c.Port + 1, true

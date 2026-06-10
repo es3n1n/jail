@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -47,6 +48,33 @@ func (p *proxyServer) connDec(ip netip.Addr) {
 	p.countTotal--
 }
 
+// PROXY TCP4 1.2.3.4 5.6.7.8 56324 443\r\n
+func readProxyV1Header(r *bufio.Reader) (*net.TCPAddr, error) {
+	line, err := r.ReadString('\n')
+	if err != nil {
+		return nil, fmt.Errorf("read header: %w", err)
+	}
+	line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
+	fields := strings.Split(line, " ")
+	if len(fields) != 6 || fields[0] != "PROXY" {
+		return nil, fmt.Errorf("malformed header %q", line)
+	}
+	switch fields[1] {
+	case "TCP4", "TCP6":
+	default:
+		return nil, fmt.Errorf("unsupported protocol %q", fields[1])
+	}
+	ip := net.ParseIP(fields[2])
+	if ip == nil {
+		return nil, fmt.Errorf("invalid source address %q", fields[2])
+	}
+	port, err := strconv.ParseUint(fields[4], 10, 16)
+	if err != nil {
+		return nil, fmt.Errorf("invalid source port %q", fields[4])
+	}
+	return &net.TCPAddr{IP: ip, Port: int(port)}, nil
+}
+
 // readBuf reads the internal buffer from bufio.Reader
 func readBuf(r *bufio.Reader) []byte {
 	b := make([]byte, r.Buffered())
@@ -66,6 +94,17 @@ func runCopy(dst io.Writer, src io.Reader, addr *net.TCPAddr, ch chan<- struct{}
 func (p *proxyServer) runConn(inConn net.Conn) {
 	defer inConn.Close()
 	addr := inConn.RemoteAddr().(*net.TCPAddr)
+	r := bufio.NewReader(io.LimitReader(inConn, 1024)) // prevent DoS
+
+	if p.cfg.ProxyProto {
+		realAddr, err := readProxyV1Header(r)
+		if err != nil {
+			log.Printf("connection %s: proxy protocol: %s", addr, err)
+			return
+		}
+		addr = realAddr
+	}
+
 	log.Printf("connection %s: connect", addr)
 	defer log.Printf("connection %s: close", addr)
 	ip, ok := netip.AddrFromSlice(addr.IP)
@@ -79,17 +118,18 @@ func (p *proxyServer) runConn(inConn net.Conn) {
 	}
 	defer p.connDec(ip)
 
-	chall := pow.GenerateChallenge(p.cfg.Pow)
-	fmt.Fprintf(inConn, "proof of work:\ncurl -sSfL https://pwn.red/pow | sh -s %s\nsolution: ", chall)
-	r := bufio.NewReader(io.LimitReader(inConn, 1024)) // prevent DoS
-	proof, err := r.ReadString('\n')
-	if err != nil {
-		return
-	}
-	if good, err := chall.Check(strings.TrimSpace(proof)); err != nil || !good {
-		log.Printf("connection %s: bad pow", addr)
-		inConn.Write([]byte("incorrect proof of work\n"))
-		return
+	if p.cfg.Pow > 0 {
+		chall := pow.GenerateChallenge(p.cfg.Pow)
+		fmt.Fprintf(inConn, "proof of work:\ncurl -sSfL https://pwn.red/pow | sh -s %s\nsolution: ", chall)
+		proof, err := r.ReadString('\n')
+		if err != nil {
+			return
+		}
+		if good, err := chall.Check(strings.TrimSpace(proof)); err != nil || !good {
+			log.Printf("connection %s: bad pow", addr)
+			inConn.Write([]byte("incorrect proof of work\n"))
+			return
+		}
 	}
 
 	log.Printf("connection %s: forwarding", addr)
